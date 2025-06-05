@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Xem nội dung file</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://unpkg.com/mammoth/mammoth.browser.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+  <script>
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+  </script>
+</head>
+<body>
+  <div class="navbar">
+    <a href="index.html">📄 Xem File</a>
+    <a href="chuyendoi.html">🔄 Chuyển Đổi File</a>
+  </div>
+
+  <div class="container">
+    <h1>Xem nội dung file</h1>
+    <div class="upload-area">
+      <input type="file" id="file-input" />
+      <label for="file-input">Chọn tệp</label>
+      <button id="clear-button">Xóa file hiện tại</button>
+    </div>
+    <div id="file-content">
+      <canvas id="pdf-canvas" style="display: none;"></canvas>
+    </div>
+  </div>
+
+  <script>
+    const fileInput = document.getElementById('file-input');
+    const contentDiv = document.getElementById('file-content');
+    const canvas = document.getElementById('pdf-canvas');
+    const clearButton = document.getElementById('clear-button');
+
+    fileInput.addEventListener('change', function () {
+      const file = fileInput.files[0];
+      contentDiv.innerHTML = '';
+      canvas.style.display = 'none';
+
+      if (!file) return;
+
+      if (file.name.endsWith('.txt') || file.type.startsWith('text/')) {
+        const reader = new FileReader();
+        reader.onload = () => contentDiv.textContent = reader.result;
+        reader.readAsText(file);
+      } else if (file.name.endsWith('.docx')) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          mammoth.convertToHtml({ arrayBuffer: reader.result })
+            .then(result => contentDiv.innerHTML = result.value)
+            .catch(() => contentDiv.innerHTML = "<p>Lỗi khi đọc file DOCX.</p>");
+        };
+        reader.readAsArrayBuffer(file);
+      } else if (file.name.endsWith('.pdf')) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const typedArray = new Uint8Array(reader.result);
+          pdfjsLib.getDocument({ data: typedArray }).promise.then(pdf => {
+            pdf.getPage(1).then(page => {
+              const scale = 1.5;
+              const viewport = page.getViewport({ scale });
+              canvas.style.display = 'block';
+              canvas.width = viewport.width;
+              canvas.height = viewport.height;
+              const renderContext = {
+                canvasContext: canvas.getContext('2d'),
+                viewport: viewport
+              };
+              page.render(renderContext);
+            });
+          });
+        };
+        reader.readAsArrayBuffer(file);
+      } else {
+        contentDiv.innerHTML = `<p>Không hỗ trợ định dạng: <strong>${file.name}</strong></p>`;
+      }
+    });
+
+    clearButton.addEventListener('click', () => {
+      fileInput.value = '';
+      contentDiv.innerHTML = '';
+      canvas.style.display = 'none';
+    });
+  </script>
+</body>
+</html>
